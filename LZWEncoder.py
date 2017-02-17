@@ -1,78 +1,59 @@
-﻿import sqlite3
+﻿# LZW Encoder: This program encodes the input text file using the LZW algorithm. The initial dictionary consists of
+#              all the ASCII characters from 0 to 255.
+# Arguments: The program needs 2 arguments, Name of the input text file and N: size of the code
+# Author:   Sumant Sanjay Tapas
+# UNCC ID:  800905142
+# Email ID: stapas@uncc.edu
+
+
 from sys import argv
 import struct
 
 
-conn = sqlite3.connect(':memory:')
-code_Value = 255
-intOutputString = []
+#  Function to initialize dictionary[0 to 255] = code for individual characters
+
+# Main Program
+# The program uses SQLite3 database to create the dictionary.
+# The ':memory:' parameter specifies that the database is created in RAM and is temporary
+
+code_Value = 255                    # Initial value of the code if a new code is to be added
+intOutputCode = []                  # List to hold the output codes
 index = 0
 
+dictionary = {}
+for k in range(0, 256):
+    dictionary.update({chr(k): k})
+# print(dictionary)
+string = None  # Initialize the string to null
+outputFileName = argv[1][:-3]+"lzw"         # Output file name
+outputfile = open(outputFileName, "wb")     # Open the output file in Write Binary mode
 
-def db_init(cur):
-    cur.execute('''CREATE TABLE dict (
-        code INTEGER,
-        stringVal TEXT)''')
-    for i in range(0, 255):
-        conn.execute("insert into dict (code,stringVal) values (?,?)", (str(i), chr(i)))
+MAX_TABLE_VALUE = pow(2, int(argv[2]))  # Max table value depending on the command line parameter
+filename = argv[1]                      # Input file name
+fileObj = open(filename, "r")           # Open the file in Read mode
+result = fileObj.read()
+for c in result:
 
-
-cur = conn.cursor()
-db_init(cur)
-
-string = None
-
-
-MAX_TABLE_VALUE = pow(2, int(argv[2]))
-filename = "G:\\UNCC\\Spring 16\\Algos\\Project\\LZW\\" + argv[1]
-fileobj = open(filename, "r")
-while True:
-    c = fileobj.read(1)
-    if(not c):
-        break
+    symbol = c
+    if string != None:
+        param = string+symbol  # If not first character, add the new symbol to the existing string and assign it to the param
     else:
-        symbol = c
-        if string != None:
-            param = string+str(symbol)
-        else:
-            param = str(symbol)
-        query = "select count(*) from dict where stringVal = '"+param+"'"
-        rdr = conn.execute("select count(*) from dict where stringVal = ?", (param,))
-        count = rdr.fetchone()
-        if int(count[0]) > 0:
-            string = param
-        else:
-            query = "select code from dict where stringVal = '"+string+"'"
-            # rdr = conn.execute(query)
-            rdr = conn.execute("select code from dict where stringVal = ?", (string,))
-            codeVal = rdr.fetchone()
-            intOutputString.insert(index, int(codeVal[0]))
-            print(int(codeVal[0]))
-            query = "select count(*) from dict"
-            rdr = conn.execute(query)
-            noOfEntries = rdr.fetchone()
-            if int(noOfEntries[0]) < MAX_TABLE_VALUE:
-                code_Value += 1
-                conn.execute("insert into dict (code,stringVal) values (?,?)", (str(code_Value), param))
-            string = symbol
-    index += 1
-query = "select code from dict where stringVal = '"+string+"'"
-codeVal1 = conn.execute("select code from dict where stringVal = ?", (string,))# conn.execute(query)
-
-final = codeVal1.fetchone()
-print(int(final[0]))
-intOutputString.insert(index, int(final[0]))
-print(intOutputString)
+        param = symbol         # Else if it is the first character, assign the new symbol to param
+    if param in dictionary:
+        string = param
+    else:
+        if string in dictionary:
+            code = dictionary[string]
+            outputfile.write(struct.pack('>H', int(code)))
+        size = len(dictionary)
+        if size < MAX_TABLE_VALUE:  # If size < Max dictionary size, insert the new code
+            code_Value += 1                        # Increament the code value
+            dictionary.update({param: code_Value})
+        string = symbol
+if string in dictionary:
+    code = dictionary[string]
+    outputfile.write(struct.pack('>H', int(code)))
 
 
-outputFileName = "G:\\UNCC\\Spring 16\\Algos\\Project\\LZW\\"+argv[1][:-3]+"lzw"
-outputfile = open(outputFileName, "wb")
-
-for i in range(len(intOutputString)):
-    outputfile.write(struct.pack('>H', intOutputString[i]))
-
-
-outputfile.close()
-fileobj.close()
-cur.close()
-#conn.close()
+outputfile.close()  # Close the output file
+fileObj.close()
